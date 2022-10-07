@@ -3,6 +3,7 @@ import 'package:app_clima/Widgets/resumo.dart';
 import 'package:app_clima/models/previsao_hora.dart';
 import 'package:app_clima/services/previsao_service.dart';
 import 'package:flutter/material.dart';
+import 'dart:core';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -12,13 +13,21 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  late List<PrevisaoHora> ultimasPrevisoes;
+  late Future<List<PrevisaoHora>> ultimasPrevisoes;
 
   @override
   void initState() {
     super.initState();
+    carregarPrevisoes();
+  }
+
+  void carregarPrevisoes() {
     PrevisaoService service = PrevisaoService();
     ultimasPrevisoes = service.recuperarUltimasPrevisoes();
+  }
+
+  Future<Null> atualizarPrevisoes() async {
+    setState(() => carregarPrevisoes());
   }
 
   @override
@@ -28,24 +37,48 @@ class _HomeState extends State<Home> {
         title: const Text('Clima'),
         centerTitle: true,
       ),
-      body: Center(
-        child: Column(
-          children: [
-            Resumo(
-              cidade: 'Lindoia-SP',
-              temperaturaAtual: 30,
-              temperaturaMaxima: 40,
-              temperaturaMinima: 25,
-              descricao: 'Ensolarado',
-              numeroIcone: 1,
-            ),
-            Padding(
-              padding: EdgeInsets.all(10),
-            ),
-            ProximasTemperaturas(
-              previsoes: ultimasPrevisoes,
-            )
-          ],
+      body: RefreshIndicator(
+        onRefresh: atualizarPrevisoes,
+        child: Center(
+          child: FutureBuilder<List<PrevisaoHora>>(
+            future: ultimasPrevisoes,
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                List<PrevisaoHora>? previsoes = snapshot.data;
+                double temperaturaAtual = previsoes![0].temperatura;
+                double menorTemperatura = double.maxFinite;
+                double maiorTemperatura = double.negativeInfinity;
+                previsoes.forEach((obj) {
+                  if (obj.temperatura < menorTemperatura) {
+                    menorTemperatura = obj.temperatura;
+                  }
+                });
+                String descricao = previsoes[0].descricao;
+                int numeroIcone = previsoes[0].numeroIcone;
+                return Column(
+                  children: [
+                    Resumo(
+                      cidade: 'Lindoia-SP',
+                      temperaturaAtual: temperaturaAtual,
+                      temperaturaMaxima: maiorTemperatura,
+                      temperaturaMinima: menorTemperatura,
+                      descricao: descricao,
+                      numeroIcone: numeroIcone,
+                    ),
+                    Padding(
+                      padding: EdgeInsets.all(10),
+                    ),
+                    ProximasTemperaturas(
+                      previsoes: previsoes.sublist(1, previsoes.length),
+                    )
+                  ],
+                );
+              } else if (snapshot.hasError) {
+                return Text('erro ao carregar previsoes');
+              }
+              return CircularProgressIndicator();
+            },
+          ),
         ),
       ),
     );

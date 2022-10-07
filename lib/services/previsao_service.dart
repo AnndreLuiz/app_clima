@@ -1,18 +1,29 @@
+import 'package:app_clima/controllers/cidade_controller.dart';
 import 'package:app_clima/models/previsao_hora.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart';
+import 'dart:convert';
 
 class PrevisaoService {
-  List<PrevisaoHora> recuperarUltimasPrevisoes() {
-    return [
-      PrevisaoHora('11:00', 'Ensolarado', 1, 30),
-      PrevisaoHora('12:00', 'Ensolarado', 1, 30),
-      PrevisaoHora('13:00', 'Ensolarado', 1, 32),
-      PrevisaoHora('14:00', 'Ensolarado', 1, 32),
-      PrevisaoHora('15:00', 'Ensolarado', 1, 34),
-      PrevisaoHora('16:00', 'Ensolarado', 1, 35),
-      PrevisaoHora('17:00', 'Ensolarado', 1, 34),
-      PrevisaoHora('18:00', 'Parcialmente ensolarado', 2, 29),
-      PrevisaoHora('19:00', 'Nuvens esparsas', 3, 28),
-      PrevisaoHora('20:00', 'Nuvens esparsas', 3, 27),
-    ];
+  final String baseUrlAPI = 'dataservice.accuweather.com';
+  final String path =
+      'forecasts/v1/hourly/12hour/${CidadeController.instancia.cidadeEscolhida.codigo}';
+  final Map<String, String> params = {
+    'apikey': dotenv.get('API_KEY'),
+    'language': 'pt-BR',
+    'metric': 'true',
+  };
+
+  Future<List<PrevisaoHora>> recuperarUltimasPrevisoes() async {
+    final Response resposta = await get(Uri.https(baseUrlAPI, path, params));
+
+    if (resposta.statusCode == 200) {
+      Iterable it = json.decode(resposta.body);
+      List<PrevisaoHora> previsoes = List.from(
+          it.map((objJson) => PrevisaoHora.transformarHorario(objJson)));
+      return previsoes;
+    } else {
+      throw Exception('falha ao carregar as previsoes');
+    }
   }
 }
